@@ -214,6 +214,12 @@ class CPU:
         # If reigsterA is > registerB, set the Greater-Than G flag to 1, otherwise set it to 0
         self.alu('CMP', self.opA, self.opB)
         
+    # 2. Add the JMP instruction
+    def JMP(self):
+        # Jump the address stored in the given register
+        self.PC_SET = True
+        self.PC = self.R[self.opA & 7]
+        
         
     # 4. Stretch: Add the ALU operations: `AND` `OR` `XOR` `NOT` `SHL` `SHR` `MOD`
     # ALU Table
