@@ -27,6 +27,7 @@ class CPU:
         self.FL = 0
         # Initialize memory
         self.RAM = [0] * 256
+        # Stretch 4: Add keyboard interrupts 
         # Allow interrupts
         self.interrupts_enable = True
         # The system is not halted at startup
@@ -220,6 +221,238 @@ class CPU:
         self.PC_SET = True
         self.PC = self.R[self.opA & 7]
         
+    # 3. Add the JEQ & JNE instructions - MVP
+    def JEQ(self):
+        # If E (equal) flag is set (true), jump to the address stored in the given register
+        # E == Equal: during a CMP, set to 1 if registerA is equal to registerB, zero otherwise
+        if self.E:
+            self.PC_SET = True
+            self.PC = self.R[self.opA & 7]
+
+    def JNE(self):
+        # If E flag is clear (false, 0), jump to the address stored in the given register
+        if not self.E:
+            self.PC_SET = True
+            self.PC = self.R[self.opA & 7]
+        
+    def NOP(self):
+        """ No operation. Do nothing for this instruction. """
+        pass
+    
+    def HLT(self):
+        # Halt the CPU (and exit the emulator)
+        self.HALT = True
+    
+    def RET(self):
+        # Return from subroutine. Pop the value from the top of the stack and store it in the PC
+        self.PC_SET = True
+        self.PC = self.pop()
+
+    def IRET(self):
+        """ 
+        Return from an interrupt handler.
+        The following steps are executed:
+            Registers R6-R0 are popped off the stack in that order
+            The FL register is popped off the stack
+            The return address is popped off the stack and stored in PC
+            Interrupts are re-enabled
+        """
+        self.PC_SET = True
+        self.R[6] = self.pop()
+        self.R[5] = self.pop()
+        self.R[4] = self.pop()
+        self.R[3] = self.pop()
+        self.R[2] = self.pop()
+        self.R[1] = self.pop()
+        self.R[0] = self.pop()
+        self.FL = self.pop()
+        self.PC = self.pop()
+        self.interrupts_enabled = True  # Stretch 4: Add keyboard interrupts
+
+    def PUSH(self):
+        # Push the value in the given register on the stack
+        self.push(self.R[self.opA & 7])
+
+    def POP(self):
+        # Pop the value at the top of the stack into the given register
+        self.R[self.opA & 7] = self.pop()
+
+    def PRN(self):
+        # Print numeric value stored in the gien register
+        print(self.R[self.opA & 7])
+
+    def PRA(self):
+        # Print alpha character value stored in the given register. 26 alphabetic characters, A to Z, and the 10 Arabic numerals, 0 to 9 for English
+        print(chr(self.R[self.opA & 7]), end='')
+
+    def CALL(self):
+        # Calls a subroutine (function) at the address stored in the register.
+        self.PC_SET = True
+        # The address of the instruction directly after CALL is pushed onto the stack. This allows us to return to where we left off when the subroutine finishes executing.
+        self.push((self.PC + 2) & 255)
+        # The PC is set to the address stored in the given register. We jump to that location in RAM and execute the first instruction in the subroutine. The PC can move forward or backwards from its current location.
+        self.PC = self.R[self.opA & 7]
+
+    def INT(self):
+        """
+        Issue the interrupt number stored in the given register.
+        This will set the _n_th bit in the IS register to the value in the given register.
+        """
+        # TO DO
+        # PC_SET = True
+        pass
+
+    def JGT(self):
+        """
+        If greater-than flag is set (true),
+        jump to the address stored in the given register.
+        """
+        if self.G:
+            self.PC_SET = True
+            self.PC = self.R[self.opA & 7]
+
+    def JLT(self):
+        """
+        If less-than is set (true),
+        jump to the address stored in the given register.
+        """
+        if self.L:
+            self.PC_SET = True
+            self.PC = self.R[self.opA & 7]
+
+    def JLE(self):
+        """
+        If less-than flag or equal flag is set (true),
+        jump to the address stored in the given register.
+        """
+        if self.L or self.E:
+            self.PC_SET = True
+            self.PC = self.R[self.opA & 7]
+
+    def JGE(self):
+        """
+        If greater-than flag or equal flag is set (true),
+        jump to the address stored in the given register.
+        """
+        if self.G or self.E:
+            self.PC_SET = True
+            self.PC = self.R[self.opA & 7]
+
+    def INC(self):
+        """
+        Increment (add 1 to) the value in the given register.
+        """
+        self.alu('INC', self.opA, self.opB)
+
+    def DEC(self):
+        """
+        Decrement (subtract 1 from) the value in the given register.
+        """
+        self.alu('DEC', self.opA, self.opB)
+
+    def NOT(self):
+        """
+        Perform a bitwise-NOT on the value in a register,
+        storing the result in the register.
+        """
+        self.alu('NOT', self.opA, self.opB)
+
+    def LDI(self):
+        """
+        Set the value of a register to an integer.
+        """
+        self.R[self.opA & 7] = self.opB
+
+    def LD(self):
+        """
+        Loads registerA with the value at the memory address stored in registerB.
+        """
+        self.MAR = self.R[self.opB & 7]
+        self.ram_read()
+        self.R[self.opA & 7] = self.MDR
+
+    def ST(self):
+        """
+        Store value in registerB in the address stored in registerA.
+        This opcode writes to memory.
+        """
+        self.MAR = self.R[self.opA & 7]
+        self.MDR = self.R[self.opB & 7]
+        self.ram_write()
+
+    def ADD(self):
+        """
+        Add the value in two registers and store the result in registerA.
+        """
+        self.alu('ADD', self.opA, self.opB)
+
+    def SUB(self):
+        """
+        Subtract the value in the second register from the first,
+        storing the result in registerA.
+        """
+        self.alu('SUB', self.opA, self.opB)
+
+    def MUL(self):
+        """
+        Multiply the values in two registers together and store the
+        result in registerA.
+        """
+        self.alu('MUL', self.opA, self.opB)
+
+    def DIV(self):
+        """
+        Divide the value in the first register by the value in the second,
+        storing the result in registerA.
+        If the value in the second register is 0, the system should print
+        an error message and halt.
+        """
+        self.alu('DIV', self.opA, self.opB)
+
+    def MOD(self):
+        """
+        Divide the value in the first register by the value in the second,
+        storing the remainder of the result in registerA.
+        If the value in the second register is 0, the system should print
+        an error message and halt.
+        """
+        self.alu('MOD', self.opA, self.opB)
+
+    def AND(self):
+        """
+        Perform a bitwise-AND between the values in registerA and
+        registerB, storing the result in registerA.
+        """
+        self.alu('AND', self.opA, self.opB)
+
+    def OR(self):
+        """
+        Perform a bitwise-OR between the values in registerA and
+        registerB, storing the result in registerA.
+        """
+        self.alu('OR', self.opA, self.opB)
+
+    def XOR(self):
+        """
+        Perform a bitwise-XOR between the values in registerA and
+        registerB, storing the result in registerA.
+        """
+        self.alu('XOR', self.opA, self.opB)
+
+    def SHL(self):
+        """
+        Shift the value in registerA left by the number of bits
+        specified in registerB, filling the low bits with 0.
+        """
+        self.alu('SHL', self.opA, self.opB)
+
+    def SHR(self):
+        """
+        Shift the value in registerA right by the number of bits
+        specified in registerB, filling the high bits with 0.
+        """
+        self.alu('SHR', self.opA, self.opB)
+    
         
     # 4. Stretch: Add the ALU operations: `AND` `OR` `XOR` `NOT` `SHL` `SHR` `MOD`
     # ALU Table
@@ -267,7 +500,34 @@ class CPU:
             raise Exception("Division by zero error")
 
         self.R[reg_a] = (self.R[reg_a] % self.R[reg_b]) & 255
+        
+        
+    # INC register: Increment (add 1 to) the value in the given register
+    def ALU_INC(self, reg_a, reg_b):
+        self.R[reg_a] = (self.R[reg_a] + 1) & 255
 
+    # DEC register: Decrement (subtract 1 from) the value in the given register
+    def ALU_DEC(self, reg_a, reg_b):
+        self.R[reg_a] = (self.R[reg_a] - 1) & 255
+
+    # ADD registerA registerB: Add the values in two registers and store the result in registerA
+    def ALU_ADD(self, reg_a, reg_b):
+        self.R[reg_a] = (self.R[reg_a] + self.R[reg_b]) & 255
+
+    # SUB registerA registerB: Subtract the value in the second register from the first, storing the result in registerA
+    def ALU_SUB(self, reg_a, reg_b):
+        self.R[reg_a] = (self.R[reg_a] - self.R[reg_b]) & 255
+
+    # MUL registerA registerB: Multiply the values in two registers together and store the result in registerA
+    def ALU_MUL(self, reg_a, reg_b):
+        self.R[reg_a] = (self.R[reg_a] * self.R[reg_b]) & 255
+
+   # DIV registerA registerB: Divide the value in the first register by the value in the second, storing the result in registerA
+    def ALU_DIV(self, reg_a, reg_b):
+        if self.R[reg_b] == 0:
+            raise Exception("Division by zero error")
+
+        self.R[reg_a] = (self.R[reg_a] // self.R[reg_b]) & 255
 
     def alu(self, op, reg_a, reg_b):
         # Perform ALU operations
@@ -275,6 +535,26 @@ class CPU:
         if do is None:
             raise Exception("Unsupported ALU operation")
         do(reg_a, reg_b)
+
+    """
+    CMP registerA registerB
+    Compare the values in two registers:
+    If they are equal, set the Equal E flag to 1, otherwise set it to 0.
+    If registerA is less than registerB, set the Less-than flag to 1, otherwise set it to 0.
+    If registerA is greater than registerB, set the Greater-than G flag to 1, otherwise set it to 0.
+    """
+
+    def ALU_CMP(self, reg_a, reg_b):
+        self.set_L(False)
+        self.set_G(False)
+        self.set_E(False)
+
+        if self.R[reg_a] < self.R[reg_b]:
+            self.set_L(True)
+        elif self.R[reg_a] > self.R[reg_b]:
+            self.set_G(True)
+        else:
+            self.set_E(True)
 
 
     def load(self, program):
@@ -332,7 +612,7 @@ class CPU:
         Run the CPU
         command line: python3 ls8.py sctest.ls8 
         """
-        # print("Running program...")
+        print("Running program...")
 
         while not self.HALT:
             self.step()

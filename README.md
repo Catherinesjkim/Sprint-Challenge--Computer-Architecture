@@ -51,7 +51,7 @@ Your finished project must include all of the following requirements:
 
 - [X] Add the `JMP` instruction.
 
-- [ ] Add the `JEQ` and `JNE` instructions.
+- [X] Add the `JEQ` and `JNE` instructions.
 
 [See the LS-8 spec for details](https://github.com/LambdaSchool/Computer-Architecture/blob/master/LS8-spec.md)
 
@@ -170,5 +170,5 @@ can deliver on the following optional goals:
 
 - [X] Add the ALU operations: `AND` `OR` `XOR` `NOT` `SHL` `SHR` `MOD`
 - [ ] Add an `ADDI` extension instruction to add an immediate value to a register
-- [ ] Add timer interrupts
-- [ ] Add keyboard interrupts
+- [X] Add timer interrupts
+- [X] Add keyboard interrupts
